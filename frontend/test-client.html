@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatFlow Test Client</title>
+  <style>
+    /* Simple styling for readability */
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status.disconnected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    #messages {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 10px 0;
+      background: #fafafa;
+      border-radius: 4px;
+    }
+    
+    .message {
+      margin: 5px 0;
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+      border-left: 3px solid #007bff;
+    }
+    
+    .message-time {
+      font-size: 0.8em;
+      color: #666;
+    }
+    
+    input[type="text"] {
+      width: calc(100% - 90px);
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    button:hover {
+      background: #0056b3;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .info {
+      background: #e7f3ff;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 0.9em;
+      color: #004085;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 ChatFlow Test Client</h1>
+    
+    <!-- Connection status -->
+    <div id="status" class="status disconnected">
+      Disconnected
+    </div>
+    
+    <!-- Info box -->
+    <div class="info">
+      <strong>Socket ID:</strong> <span id="socket-id">Not connected</span>
+    </div>
+    
+    <!-- Messages display area -->
+    <div id="messages"></div>
+    
+    <!-- Message input form -->
+    <div>
+      <input 
+        type="text" 
+        id="message-input" 
+        placeholder="Type a message..." 
+        disabled
+      />
+      <button id="send-btn" disabled>Send</button>
+    </div>
+  </div>
+
+  <!-- 
+    Load Socket.io client library from CDN
+    
+    Why from CDN?
+    - Quick setup (no build step needed)
+    - Socket.io client must match server version
+    - Later we'll use npm package in React
+  -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  
+  <script>
+    /**
+     * Socket.io Client Setup
+     * 
+     * io() connects to the server
+     * If no URL provided, connects to same origin
+     * We specify explicitly for clarity
+     */
+    const socket = io('http://localhost:3000', {
+      // Automatically try to reconnect if connection lost
+      reconnection: true,
+      // Wait 1 second before reconnecting
+      reconnectionDelay: 1000,
+      // Keep trying to reconnect indefinitely
+      reconnectionAttempts: Infinity,
+      // Max delay between reconnection attempts (10 seconds)
+      reconnectionDelayMax: 10000
+    });
+    
+    // Get DOM elements
+    const statusDiv = document.getElementById('status');
+    const socketIdSpan = document.getElementById('socket-id');
+    const messagesDiv = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    
+    /**
+     * Event: 'connect'
+     * Fires when successfully connected to server
+     */
+    socket.on('connect', () => {
+      console.log('✅ Connected to server');
+      console.log('Socket ID:', socket.id);
+
+      // Reset error counter on successful connection
+      window.errorCount = 0;
+
+      // Update UI
+      statusDiv.textContent = 'Connected';
+      statusDiv.className = 'status connected';
+      socketIdSpan.textContent = socket.id;
+
+      // Enable input and button
+      messageInput.disabled = false;
+      sendBtn.disabled = false;
+      messageInput.focus();
+
+      // Show success message
+      addMessage('System', '✅ Connected to server successfully!', true);
+    });
+    
+    /**
+     * Event: 'disconnect'
+     * Fires when connection to server is lost
+     * 
+     * Reasons for disconnect:
+     * - Server went down
+     * - Network issue
+     * - Client closed tab/browser
+     * - Explicit socket.disconnect() called
+     */
+    socket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from server');
+      console.log('Reason:', reason);
+      
+      // Update UI
+      statusDiv.textContent = `Disconnected (${reason})`;
+      statusDiv.className = 'status disconnected';
+      socketIdSpan.textContent = 'Not connected';
+      
+      // Disable input and button
+      messageInput.disabled = true;
+      sendBtn.disabled = true;
+      
+      // Add system message
+      addMessage('System', 'Connection lost. Attempting to reconnect...', true);
+    });
+    
+    /**
+     * Event: 'connect_error'
+     * Fires when connection attempt fails
+     * This fires during INITIAL connection attempts too
+     */
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+
+      // Update status to show we're trying
+      statusDiv.textContent = 'Connecting...';
+      statusDiv.className = 'status disconnected';
+
+      // Only log first few errors to avoid spam
+      if (!window.errorCount) window.errorCount = 0;
+      window.errorCount++;
+
+      if (window.errorCount <= 3) {
+        addMessage('System', `Connection attempt failed. Retrying...`, true);
+      } else if (window.errorCount === 4) {
+        addMessage('System', `Still trying to connect... (will keep retrying)`, true);
+      }
+    });
+    
+    /**
+     * Event: 'reconnect_attempt'
+     * Fires when Socket.io tries to reconnect
+     */
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('Reconnecting... Attempt', attemptNumber);
+      addMessage('System', `Reconnecting... Attempt ${attemptNumber}`, true);
+    });
+    
+    /**
+     * Event: 'reconnect'
+     * Fires when successfully reconnected
+     */
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('✅ Reconnected after', attemptNumber, 'attempts');
+      addMessage('System', 'Reconnected successfully!', true);
+    });
+    
+    /**
+     * Custom Event: 'message'
+     * Receive messages from server
+     * 
+     * This matches the socket.emit('message') we wrote in server.js
+     */
+    socket.on('message', (data) => {
+      console.log('📨 Received message:', data);
+      addMessage('Server', data.text);
+    });
+    
+    /**
+     * Send message to server
+     * Triggered by clicking Send button or pressing Enter
+     */
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      
+      // Don't send empty messages
+      if (!text) return;
+      
+      // Display in UI (our sent message)
+      addMessage('You', text);
+      
+      /**
+       * Emit 'message' event to server
+       * 
+       * Server is listening: socket.on('message', ...)
+       * Data can be any JSON-serializable value
+       */
+      socket.emit('message', { text });
+      
+      // Clear input
+      messageInput.value = '';
+      messageInput.focus();
+    }
+    
+    /**
+     * Helper function to add message to display
+     * 
+     * @param {string} sender - Who sent the message
+     * @param {string} text - Message content
+     * @param {boolean} isSystem - Is this a system message?
+     */
+    function addMessage(sender, text, isSystem = false) {
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message';
+      
+      // Different styling for system messages
+      if (isSystem) {
+        messageEl.style.borderLeftColor = '#ffc107';
+        messageEl.style.background = '#fff3cd';
+      }
+      
+      const time = new Date().toLocaleTimeString();
+      messageEl.innerHTML = `
+        <strong>${sender}:</strong> ${text}
+        <div class="message-time">${time}</div>
+      `;
+      
+      messagesDiv.appendChild(messageEl);
+      
+      // Auto-scroll to bottom
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    // Event listeners for sending messages
+    sendBtn.addEventListener('click', sendMessage);
+    
+    // Send message on Enter key
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+    
+    // Add welcome message on load
+    window.addEventListener('load', () => {
+      addMessage('System', 'Connecting to server...', true);
+    });
+  </script>
+</body>
+</html>
