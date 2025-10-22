@@ -1,3 +1,8 @@
+/**
+ * @fileoverview WebSocket server entry point for ChatFlow real-time chat application.
+ * @module server
+ */
+
 import dotenv from "dotenv";
 dotenv.config();
 import { createApp } from "./app.js";

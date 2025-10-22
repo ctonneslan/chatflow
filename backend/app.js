@@ -1,8 +1,18 @@
+/**
+ * @fileoverview Express application factory for ChatFlow API.
+ * @module app
+ */
+
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import authRoutes from "./routes/auth.js";
 
+/**
+ * Create and configure Express application with middleware and routes.
+ * @returns {express.Application} Configured Express app instance
+ */
 export function createApp() {
   const app = express();
 
@@ -24,6 +34,8 @@ export function createApp() {
       timestamp: new Date().toISOString(),
     });
   });
+
+  app.use("/api/auth", authRoutes);
 
   app.get("/", (req, res) => {
     res.json({
