@@ -18,7 +18,25 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Allow any localhost origin in development
+        if (process.env.NODE_ENV !== 'production') {
+          if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+            return callback(null, true);
+          }
+        }
+
+        // Allow configured CLIENT_URL
+        const allowedOrigins = [process.env.CLIENT_URL || "http://localhost:5173"];
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        callback(new Error('Not allowed by CORS'));
+      },
       credentials: true,
     })
   );
