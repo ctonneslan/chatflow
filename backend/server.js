@@ -18,7 +18,7 @@ const httpServer = createServer(app);
 const io = initializeSocketServer(httpServer);
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 ChatFlow server running on http:localhost:${PORT}`);
+  console.log(`🚀 ChatFlow server running on http://localhost:${PORT}`);
   console.log("📡 WebSocket server ready with authentication");
   console.log("🌍 Environment:", process.env.NODE_ENV);
 });

@@ -9,6 +9,7 @@
     "db:create": "node backend/database/create-db.js",
     "db:setup": "node backend/database/setup.js",
     "db:init": "npm run db:create && npm run db:setup",
+    "db:reset": "node backend/database/reset.js && npm run db:setup",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
